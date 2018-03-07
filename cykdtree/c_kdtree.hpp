@@ -149,7 +149,7 @@ public:
 
     for (uint32_t d = 0; d < ndim; d++) {
       if ((left_nodes[d]) && (!(left_nodes[d]->is_empty)))
-    	add_neighbors(left_nodes[d], d);
+        add_neighbors(left_nodes[d], d);
     }
   }
   Node(std::istream &is) {
@@ -254,39 +254,39 @@ public:
     Node *out;
     if (is_empty) {
       if (left_edge) {
-	out = new Node(ndim, left_edge, right_edge,
-		       periodic_left, periodic_right);
+        out = new Node(ndim, left_edge, right_edge,
+                       periodic_left, periodic_right);
       } else {
-	out = new Node();
+        out = new Node();
       }
     } else if (is_leaf) {
       std::vector<Node*> left_nodes_copy;
       for (uint32_t d = 0; d < ndim; d++)
-	left_nodes_copy.push_back(NULL);
+        left_nodes_copy.push_back(NULL);
       out = new Node(ndim, left_edge, right_edge,
-		     periodic_left, periodic_right,
-		     left_idx, children, leafid, 
-		     left_nodes_copy);
+                     periodic_left, periodic_right,
+                     left_idx, children, leafid,
+                     left_nodes_copy);
     } else {
       Node *lnode = less->copy();
       Node *gnode = greater->copy();
       std::vector<Node*> left_nodes_copy;
       for (uint32_t d = 0; d < ndim; d++)
-	left_nodes_copy.push_back(NULL);
+        left_nodes_copy.push_back(NULL);
       out = new Node(ndim, left_edge, right_edge,
-		     periodic_left, periodic_right,
-		     left_idx, split_dim, split, lnode, gnode,
-		     left_nodes_copy);
+                     periodic_left, periodic_right,
+                     left_idx, split_dim, split, lnode, gnode,
+                     left_nodes_copy);
       std::vector<uint32_t>::iterator it;
       for (uint32_t d = 0; d < ndim; d++) {
-	for (it = left_neighbors[d].begin();
-	     it != left_neighbors[d].end(); it++) {
-	  out->left_neighbors[d].push_back(*it);
-	}
-	for (it = right_neighbors[d].begin();
-	     it != right_neighbors[d].end(); it++) {
-	  out->right_neighbors[d].push_back(*it);
-	}
+        for (it = left_neighbors[d].begin();
+             it != left_neighbors[d].end(); it++) {
+          out->left_neighbors[d].push_back(*it);
+        }
+        for (it = right_neighbors[d].begin();
+             it != right_neighbors[d].end(); it++) {
+          out->right_neighbors[d].push_back(*it);
+        }
       }
     }
 
@@ -298,9 +298,9 @@ public:
     uint32_t i;
     for (uint32_t d = 0; d < ndim; d++) {
       for (i = 0; i < left_neighbors[d].size(); i++)
-	left_neighbors[d][i] += add_to;
+        left_neighbors[d][i] += add_to;
       for (i = 0; i < right_neighbors[d].size(); i++)
-	right_neighbors[d][i] += add_to;
+        right_neighbors[d][i] += add_to;
     }
     for (i = 0; i < all_neighbors.size(); i++)
       all_neighbors[i] += add_to;
@@ -313,7 +313,7 @@ public:
     for (i = 0; i < ndim; i++) {
       printf("[");
       for (j = 0; j < left_neighbors[i].size(); j++)
-	printf("%u ", left_neighbors[i][j]);
+        printf("%u ", left_neighbors[i][j]);
       printf("] ");
     }
     printf("]\n");
@@ -322,7 +322,7 @@ public:
     for (i = 0; i < ndim; i++) {
       printf("[");
       for (j = 0; j < right_neighbors[i].size(); j++)
-	printf("%u ", right_neighbors[i][j]);
+        printf("%u ", right_neighbors[i][j]);
       printf("] ");
     }
     printf("]\n");
@@ -334,16 +334,16 @@ public:
       curr->right_neighbors[dim].push_back(leafid);
     } else {
       if (curr->split_dim == dim) {
-	add_neighbors(curr->greater, dim);
+        add_neighbors(curr->greater, dim);
       } else {
-	if (curr->split > this->right_edge[curr->split_dim])
-	  add_neighbors(curr->less, dim);
-	else if (curr->split < this->left_edge[curr->split_dim])
-	  add_neighbors(curr->greater, dim);
-	else {
-	  add_neighbors(curr->less, dim);
-	  add_neighbors(curr->greater, dim);
-	}
+        if (curr->split > this->right_edge[curr->split_dim])
+          add_neighbors(curr->less, dim);
+        else if (curr->split < this->left_edge[curr->split_dim])
+          add_neighbors(curr->greater, dim);
+        else {
+          add_neighbors(curr->less, dim);
+          add_neighbors(curr->greater, dim);
+        }
       }
     }
   }
@@ -360,11 +360,11 @@ public:
     uint32_t d;
     for (d = 0; d < ndim; d++) {
       if (d == ldim)
-	continue;
+        continue;
       if (right_edge[d] < lnode->left_edge[d])
-	return false;
+        return false;
       if (left_edge[d] > lnode->right_edge[d])
-	return false;
+        return false;
     }
     return true;
   }
@@ -511,10 +511,10 @@ public:
 
   // KDTree() {}
   KDTree(double *pts, uint64_t *idx, uint64_t n, uint32_t m,
-	 uint32_t leafsize0, double *left_edge, double *right_edge,
-	 bool *periodic_left0, bool *periodic_right0,
-	 double *domain_mins0, double *domain_maxs0, int64_t dversion,
-	 bool use_sliding_midpoint0 = false, bool dont_build = false)
+         uint32_t leafsize0, double *left_edge, double *right_edge,
+         bool *periodic_left0, bool *periodic_right0,
+         double *domain_mins0, double *domain_maxs0, int64_t dversion,
+         bool use_sliding_midpoint0 = false, bool dont_build = false)
   {
     is_partial = true;
     skip_dealloc_root = false;
@@ -556,10 +556,10 @@ public:
     any_periodic = false;
     for (uint32_t d = 0; d < ndim; d++) {
       if ((periodic_left[d]) && (periodic_right[d])) {
-	periodic[d] = true;
-	any_periodic = true;
+        periodic[d] = true;
+        any_periodic = true;
       } else {
-	periodic[d] = false;
+        periodic[d] = false;
       }
     }
 
@@ -570,9 +570,10 @@ public:
       build_tree(pts);
 
   }
-  KDTree(double *pts, uint64_t *idx, uint64_t n, uint32_t m, uint32_t leafsize0,
-	 double *left_edge, double *right_edge, bool *periodic0, int64_t dversion,
-	 bool use_sliding_midpoint0 = false, bool dont_build = false)
+  KDTree(double *pts, uint64_t *idx, uint64_t n, uint32_t m,
+         uint32_t leafsize0, double *left_edge, double *right_edge,
+         bool *periodic0, int64_t dversion, bool use_sliding_midpoint0 = false,
+         bool dont_build = false)
   {
     is_partial = false;
     skip_dealloc_root = false;
@@ -606,12 +607,12 @@ public:
     any_periodic = false;
     for (uint32_t d = 0; d < ndim; d++) {
       if (periodic[d]) {
-	periodic_left[d] = true;
-	periodic_right[d] = true;
-	any_periodic = true;
+        periodic_left[d] = true;
+        periodic_right[d] = true;
+        any_periodic = true;
       } else {
-	periodic_left[d] = false;
-	periodic_right[d] = false;
+        periodic_left[d] = false;
+        periodic_right[d] = false;
       }
     }
 
@@ -769,14 +770,14 @@ public:
     for (i = 0; i < num_leaves; i++) {
       leaf = leaves[i];
       for (d0 = 0; d0 < ndim; d0++) {
-	if (not leaf->periodic_left[d0])
-	  continue;
-	for (j = i; j < num_leaves; j++) {
-	  prev = leaves[j];
-	  if (not prev->periodic_right[d0])
-	    continue;
-	  add_neighbors_periodic(leaf, prev, d0);
-	}
+        if (not leaf->periodic_left[d0])
+          continue;
+        for (j = i; j < num_leaves; j++) {
+          prev = leaves[j];
+          if (not prev->periodic_right[d0])
+            continue;
+          add_neighbors_periodic(leaf, prev, d0);
+        }
       }
     }
   }
@@ -792,22 +793,22 @@ public:
     ndim_escape = 0;
     for (d = 0; d < ndim; d++) {
       if (d == d0)
-	continue;
+        continue;
       if (leaf->left_edge[d] >= prev->right_edge[d]) {
-	if (!(leaf->periodic_right[d] && prev->periodic_left[d])) {
-	  match = false;
-	  break;
-	} else {
-	  ndim_escape++;
-	}
+        if (!(leaf->periodic_right[d] && prev->periodic_left[d])) {
+          match = false;
+          break;
+        } else {
+          ndim_escape++;
+        }
       }
       if (leaf->right_edge[d] <= prev->left_edge[d]) {
-	if (!(prev->periodic_right[d] && leaf->periodic_left[d])) {
-	  match = false;
-	  break;
-	} else {
-	  ndim_escape++;
-	}
+        if (!(prev->periodic_right[d] && leaf->periodic_left[d])) {
+          match = false;
+          break;
+        } else {
+          ndim_escape++;
+        }
       }
     }
     if ((match) and (ndim_escape < (ndim-1))) {
@@ -827,7 +828,7 @@ public:
     // Create leaf
     if (n < leafsize) {
       Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, n, num_leaves,
-			   left_nodes);
+                           left_nodes);
       num_leaves++;
       leaves.push_back(out);
       return out;
@@ -837,14 +838,14 @@ public:
       int64_t split_idx = 0;
       double split_val = 0.0;
       dmax = split(all_pts, all_idx, Lidx, n, ndim, mins, maxes,
-		   split_idx, split_val, use_sliding_midpoint);
+                   split_idx, split_val, use_sliding_midpoint);
       if (maxes[dmax] == mins[dmax]) {
-	// all points singular
-	Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, n, num_leaves,
-			     left_nodes);
-	num_leaves++;
-	leaves.push_back(out);
-	return out;
+        // all points singular
+        Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, n, num_leaves,
+                             left_nodes);
+        num_leaves++;
+        leaves.push_back(out);
+        return out;
       }
 
       // Get new boundaries
@@ -858,13 +859,13 @@ public:
       bool *greaterPLE = (bool*)malloc(ndim*sizeof(bool));
       std::vector<Node*> greater_left_nodes;
       for (d = 0; d < ndim; d++) {
-	lessmaxes[d] = maxes[d];
-	lessright[d] = RE[d];
-	lessPRE[d] = PRE[d];
-	greatermins[d] = mins[d];
-	greaterleft[d] = LE[d];
-	greaterPLE[d] = PLE[d];
-	greater_left_nodes.push_back(left_nodes[d]);
+        lessmaxes[d] = maxes[d];
+        lessright[d] = RE[d];
+        lessPRE[d] = PRE[d];
+        greatermins[d] = mins[d];
+        greaterleft[d] = LE[d];
+        greaterPLE[d] = PLE[d];
+        greater_left_nodes.push_back(left_nodes[d]);
       }
       lessmaxes[dmax] = split_val;
       lessright[dmax] = split_val;
@@ -883,7 +884,7 @@ public:
 
       // Create innernode referencing child nodes
       Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, dmax, split_val,
-			   less, greater, left_nodes);
+                           less, greater, left_nodes);
 
       free(lessright);
       free(greaterleft);
@@ -900,13 +901,13 @@ public:
     double* wrapped_pos = (double*)malloc(ndim*sizeof(double));
     for (d = 0; d < ndim; d++) {
       if (periodic[d]) {
-	if (pos[d] < domain_left_edge[d]) {
-	  wrapped_pos[d] = domain_right_edge[d] - fmod((domain_right_edge[d] - pos[d]),domain_width[d]);
-	} else {
-	  wrapped_pos[d] = domain_left_edge[d] + fmod((pos[d] - domain_left_edge[d]),domain_width[d]);
-	}
+        if (pos[d] < domain_left_edge[d]) {
+          wrapped_pos[d] = domain_right_edge[d] - fmod((domain_right_edge[d] - pos[d]), domain_width[d]);
+        } else {
+          wrapped_pos[d] = domain_left_edge[d] + fmod((pos[d] - domain_left_edge[d]), domain_width[d]);
+        }
       } else {
-	wrapped_pos[d] = pos[d];
+        wrapped_pos[d] = pos[d];
       }
     }
     return wrapped_pos;
@@ -927,22 +928,22 @@ public:
     valid = true;
     for (i = 0; i < ndim; i++) {
       if (pos[i] < root->left_edge[i]) {
-	valid = false;
-	break;
+        valid = false;
+        break;
       }
       if (pos[i] >= root->right_edge[i]) {
-	valid = false;
-	break;
+        valid = false;
+        break;
       }
     }
     // Traverse tree looking for leaf containing pos
     if (valid) {
       out = root;
       while (!(out->is_leaf)) {
-	if (pos[out->split_dim] < out->split)
-	  out = out->less;
-	else
-	  out = out->greater;
+        if (pos[out->split_dim] < out->split)
+          out = out->less;
+        else
+          out = out->greater;
       }
     }
 
