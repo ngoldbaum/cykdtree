@@ -39,6 +39,7 @@ cdef extern from "c_kdtree.hpp":
         bool is_leaf
         uint32_t leafid
         uint32_t ndim
+        uint32_t level
         double *left_edge
         double *right_edge
         uint64_t left_idx
@@ -89,6 +90,7 @@ cdef class PyNode:
     cdef readonly np.uint32_t id
     cdef readonly np.uint64_t npts
     cdef readonly np.uint32_t ndim
+    cdef readonly np.uint32_t level
     cdef readonly np.uint32_t num_leaves
     cdef readonly np.uint64_t start_idx
     cdef readonly np.uint64_t stop_idx

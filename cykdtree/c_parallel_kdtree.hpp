@@ -13,6 +13,7 @@ void send_leafnode(int dp, Node *node) {
   uint32_t j, ndim = node->ndim;
   int *pe = (int*)malloc(ndim*sizeof(int));
   MPI_Send(&(node->ndim), 1, MPI_UNSIGNED, dp, i++, MPI_COMM_WORLD);
+  MPI_Send(&(node->level), 1, MPI_UNSIGNED, dp, i++, MPI_COMM_WORLD);
   MPI_Send(node->left_edge, ndim, MPI_DOUBLE, dp, i++, MPI_COMM_WORLD);
   MPI_Send(node->right_edge, ndim, MPI_DOUBLE, dp, i++, MPI_COMM_WORLD);
   for (j = 0; j < ndim; j++)
@@ -35,9 +36,11 @@ void send_leafnode(int dp, Node *node) {
 
 Node* recv_leafnode(int sp) {
   int i = 0;
-  uint32_t j, ndim;
+  uint32_t j, ndim, level;
   uint32_t leafid;
   MPI_Recv(&ndim, 1, MPI_UNSIGNED, sp, i++, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+  MPI_Recv(&level, 1, MPI_UNSIGNED, sp, i++, MPI_COMM_WORLD,
+           MPI_STATUS_IGNORE);
   int *pe = (int*)malloc(ndim*sizeof(int));
   bool *ple = (bool*)malloc(ndim*sizeof(bool));
   bool *pre = (bool*)malloc(ndim*sizeof(bool));
@@ -61,7 +64,8 @@ Node* recv_leafnode(int sp) {
   }
   MPI_Recv(&leafid, 1, MPI_UNSIGNED, sp, i++, MPI_COMM_WORLD,
            MPI_STATUS_IGNORE);
-  Node *node = new Node(ndim, le, re, ple, pre, 0, 0, leafid, left_nodes);
+  Node *node = new Node(ndim, level, le, re, ple, pre, 0, 0, leafid,
+                        left_nodes);
   free(pe);
   free(ple);
   free(pre);
@@ -652,7 +656,7 @@ public:
 
   Node* recv_node(int sp, KDTree *this_tree, uint64_t prev_Lidx,
                   double *le, double *re, bool *ple, bool *pre,
-                  std::vector<Node*> left_nodes) {
+                  std::vector<Node*> left_nodes, uint32_t level) {
     bool local_debug = false;
     int tag = 0;
     Node *out;
@@ -672,7 +676,7 @@ public:
     debug_msg(local_debug, "recv_node",
               "receiving node properties from %d", sp);
     MPI_Recv(&Lidx, 1, MPI_UNSIGNED_LONG, sp, tag++, MPI_COMM_WORLD,
-    	     MPI_STATUS_IGNORE);
+             MPI_STATUS_IGNORE);
     // Proceed based on status as leaf
     MPI_Recv(&is_leaf, 1, MPI_INT, sp, tag++, MPI_COMM_WORLD,
              MPI_STATUS_IGNORE);
@@ -683,7 +687,7 @@ public:
                 "receiving leaf from %d", sp);
       MPI_Recv(&children, 1, MPI_UNSIGNED_LONG, sp, tag++,
                MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-      out = new Node(ndim, le, re, ple, pre, 
+      out = new Node(ndim, level, le, re, ple, pre, 
                      prev_Lidx + Lidx, children, 
                      this_tree->num_leaves, left_nodes);
       this_tree->leaves.push_back(out);
@@ -718,15 +722,16 @@ public:
       debug_msg(local_debug, "recv_node",
                 "receiving less from %d", sp);
       Node *less = recv_node(sp, this_tree, prev_Lidx,
-                             le, re_l, ple, pre_l, left_nodes);
+                             le, re_l, ple, pre_l, left_nodes, level+1);
       greater_left_nodes[sdim] = less;
       debug_msg(local_debug, "recv_node",
                 "receiving greater from %d", sp);
       Node *greater = recv_node(sp, this_tree, prev_Lidx,
-                                le_r, re, ple_r, pre, greater_left_nodes);
+                                le_r, re, ple_r, pre, greater_left_nodes,
+                                level+1);
       debug_msg(local_debug, "recv_node", "creating node");
-      out = new Node(ndim, le, re, ple, pre, prev_Lidx+Lidx, sdim, split, 
-                     less, greater, left_nodes);
+      out = new Node(ndim, level, le, re, ple, pre, prev_Lidx+Lidx, sdim,
+                     split, less, greater, left_nodes);
       // Free child properties
       debug_msg(local_debug, "recv_node", "freeing things");
       free(le_r);
@@ -784,7 +789,8 @@ public:
                   double *LE, double *RE,
                   bool *PLE, bool *PRE,
                   double *mins, double *maxs,
-                  std::vector<Node*> left_nodes, SplitNode *split) {
+                  std::vector<Node*> left_nodes, SplitNode *split,
+                  uint32_t level) {
     bool local_debug = true;
     Node *out;
     // Don't continue if split is NULL
@@ -807,7 +813,7 @@ public:
         debug_msg(local_debug, "build", "receiving node from %d",
                   split->proc);
         out = recv_node(split->proc, new_tree, Lidx, LE, RE, PLE, PRE,
-                        left_nodes);
+                        left_nodes, 0);
         debug_msg(local_debug, "build", "received node from %d",
                   split->proc);
       }
@@ -845,16 +851,17 @@ public:
       debug_msg(local_debug, "build",
                 "building left, Lidx = %lu", Lidx);
       Node *lnode = new_build(new_tree, Lidx, lN, LE, lRE, PLE, lPRE,
-                              mins, lmaxs, left_nodes, split->less);
+                              mins, lmaxs, left_nodes, split->less, level+1);
       r_left_nodes[idst.split_dim] = lnode;
       debug_msg(local_debug, "build",
                 "building right, Lidx = %lu", Lidx+lN);
       Node *rnode = new_build(new_tree, Lidx+lN, rN, rLE, RE, rPLE, PRE,
-                              rmins, maxs, r_left_nodes, split->greater);
+                              rmins, maxs, r_left_nodes, split->greater,
+                              level+1);
 
       // Create innernode
       debug_msg(local_debug, "build", "creating innernode");
-      out = new Node(ndim, LE, RE, PLE, PRE, Lidx, idst.split_dim, 
+      out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, idst.split_dim, 
                      idst.split_val, lnode, rnode, left_nodes);
 
       free(lRE);
@@ -871,7 +878,8 @@ public:
               double *LE, double *RE,
               bool *PLE, bool *PRE,
               double *mins, double *maxs,
-              std::vector<Node*> left_nodes, uint32_t dst_count = 0) {
+              std::vector<Node*> left_nodes, uint32_t level,
+              uint32_t dst_count = 0) {
     // Return root if no more splits happened
     if (dst_count >= dst_exch.size()) {
       std::vector<Node*>::iterator it;
@@ -913,13 +921,13 @@ public:
 
     // Build left node & receive right node
     Node *lnode = build(new_tree, Lidx, lN, LE, lRE, PLE, lPRE,
-                        mins, lmaxs, left_nodes, dst_count+1);
+                        mins, lmaxs, left_nodes, level+1, dst_count+1);
     r_left_nodes[idst.split_dim] = lnode;
     Node *rnode = recv_node(idst.dst, new_tree, Lidx+lN, rLE, RE, rPLE, PRE, 
-                            r_left_nodes);
+                            r_left_nodes, level+1);
 
     // Create innernode
-    Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, idst.split_dim, 
+    Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, idst.split_dim, 
                          idst.split_val, lnode, rnode, left_nodes);
 
     free(lRE);
@@ -1079,7 +1087,7 @@ public:
                             inter_domain_left_edge, inter_domain_right_edge,
                             inter_periodic_left, inter_periodic_right,
                             inter_domain_mins, inter_domain_maxs,
-                            left_nodes, split);
+                            left_nodes, split, 0);
       end_time(_tb, "total build");
       // Finalize neighbors
       debug_msg(local_debug, "consolidate_tree", "finalizing neighbors");
@@ -1115,7 +1123,7 @@ public:
     out->root = build(out, 0, out->npts,
                       out->domain_left_edge, out->domain_right_edge,
                       out->periodic_left, out->periodic_right,
-                      out->domain_mins, out->domain_maxs, left_nodes);
+                      out->domain_mins, out->domain_maxs, left_nodes, 0, 0);
     end_time(_tb, "total build");
     // Send root back to source
     if (src_exch.src != -1)
@@ -1224,11 +1232,11 @@ public:
     debug_msg(local_debug, "consolidate_splits", "adding splits");
     for (i = (src_round + 1), idst=0; i < nrounds; i++, idst++) {
       // if (rank == prank) {
-      //  	printf("%d: Round %d\n", rank, i);
-      //  	for (j0 = 0; j0 < size; j0++) {
-      //  	  j = proc_order[j0];
-      //  	  all_splits[j0*nrounds + i].print();
-      //  	}
+      //   printf("%d: Round %d\n", rank, i);
+      //   for (j0 = 0; j0 < size; j0++) {
+      //     j = proc_order[j0];
+      //     all_splits[j0*nrounds + i].print();
+      //   }
       // }
       if (idst < (int)(dst.size())) {
         debug_msg(local_debug, "consolidate_splits", 
@@ -1243,8 +1251,8 @@ public:
           add_split(all_splits[j*nrounds + i]);
       }
       // if (rank == prank) {
-      //  	printf("%d: After round %d\n", rank, i);
-      //  	print_neighbors();
+      //   printf("%d: After round %d\n", rank, i);
+      //   print_neighbors();
       // }
     }
     end_time(_t0, "consolidate_splits");
@@ -1393,11 +1401,11 @@ public:
     else
       (*temp_idx) = (uint64_t*)malloc(local_npts*sizeof(uint64_t));
     debug_msg(local_debug, "consolidate_idx",
-	      "allocated local index");
+              "allocated local index");
     for (uint64_t i = 0; i < local_npts; i++)
       (*temp_idx)[i] = orig_idx[all_idx[i]];
     debug_msg(local_debug, "consolidate_idx",
-	      "initialized local index");
+              "initialized local index");
     // Consolidate index on root
     if (rank == root) {
       nprev = local_npts;
@@ -1473,15 +1481,15 @@ public:
 
   void check_available() {
     MPI_Allgather(&available, 1, MPI_INT,
-		  all_avail, 1, MPI_INT,
-		  MPI_COMM_WORLD);
+                  all_avail, 1, MPI_INT,
+                  MPI_COMM_WORLD);
   }
 
   int find_available() {
     int out;
     for (out = 0; out < size; out++) {
       if ((out != rank) && (all_avail[out]))
-	return out;
+        return out;
     }
     return -1;
   }
@@ -1521,20 +1529,6 @@ public:
     }
     MPI_Bcast(pos, ndim, MPI_DOUBLE, root, MPI_COMM_WORLD);
     Node* out = tree->search(pos, true);
-    // if (rank == root) {
-    //   if (!(out)) {
-    // 	int src;
-    // 	MPI_Recv(&src, 1, MPI_INT, MPI_ANY_SOURCE, 0, MPI_COMM_WORLD,
-    // 		 MPI_STATUS_IGNORE);
-    // 	out = recv_leafnode(src);
-    //   }
-    // } else {
-    //   if (out) {
-    // 	MPI_Send(&rank, 1, MPI_INT, root, 0, MPI_COMM_WORLD);
-    // 	send_leafnode(root, out);
-    // 	out = NULL;
-    //   }
-    // }
     if (rank == root) {
       if (total_any_periodic)
         free(pos);
@@ -1571,18 +1565,18 @@ public:
     	} else {
     	  for (i = 0; i < leaf_count[j]; i++, nprev++) {
     	    MPI_Recv(leaves_le + ndim*nprev, ndim, MPI_DOUBLE, j, j,
-    		     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     	    MPI_Recv(leaves_re + ndim*nprev, ndim, MPI_DOUBLE, j, j,
-    		     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                     MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     	  }
     	}
       }
     } else {
       for (i = 0; i < tree->num_leaves; i++) {
-    	MPI_Send(tree->leaves[i]->left_edge, ndim, MPI_DOUBLE, root, rank,
-    		 MPI_COMM_WORLD);
-    	MPI_Send(tree->leaves[i]->right_edge, ndim, MPI_DOUBLE, root, rank,
-    		 MPI_COMM_WORLD);
+        MPI_Send(tree->leaves[i]->left_edge, ndim, MPI_DOUBLE, root, rank,
+                 MPI_COMM_WORLD);
+        MPI_Send(tree->leaves[i]->right_edge, ndim, MPI_DOUBLE, root, rank,
+                 MPI_COMM_WORLD);
       }
     }
     MPI_Bcast(leaves_le, total_num_leaves*ndim, MPI_DOUBLE, root, MPI_COMM_WORLD);

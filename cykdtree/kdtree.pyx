@@ -15,6 +15,7 @@ cdef class PyNode:
     Attributes:
         npts (np.uint64_t): Number of points in this node.
         ndim (np.uint32_t): Number of dimensions in domain.
+        level (np.uint32_t): The level in the KDTree of the node.
         num_leaves (np.uint32_t): Number of leaves in the tree containing this
             node.
         start_idx (np.uint64_t): Index where indices for this node begin.
@@ -41,6 +42,7 @@ cdef class PyNode:
         self.id = node.leafid
         self.npts = node.children
         self.ndim = node.ndim
+        self.level = node.level
         self.num_leaves = num_leaves
         self.start_idx = node.left_idx
         self.stop_idx = (node.left_idx + node.children)
@@ -59,6 +61,7 @@ cdef class PyNode:
         self.id = 0
         self.npts = 0
         self.ndim = 0
+        self.level = 0
         self.num_leaves = 0
         self.start_idx = 0
         self.stop_idx = 0
@@ -71,17 +74,18 @@ cdef class PyNode:
 
     def __repr__(self):
         nchars = 1 + len(str(self.__class__.__name__))
-        return ('%s(id=%i, npts=%i, start_idx=%i, stop_idx=%i,\n' +
+        return ('%s(id=%i, npts=%i, level=%i, start_idx=%i, stop_idx=%i,\n' +
                 ' ' * nchars + 'left_edge=%s,\n' +
                 ' ' * nchars + 'right_edge=%s)') % (
-            self.__class__.__name__,
-            self.id,
-            self.npts,
-            self.start_idx,
-            self.stop_idx,
-            self.left_edge,
-            self.right_edge,
-        )
+                    self.__class__.__name__,
+                    self.id,
+                    self.npts,
+                    self.level,
+                    self.start_idx,
+                    self.stop_idx,
+                    self.left_edge,
+                    self.right_edge,
+                )
 
     @property
     def periodic_left(self):

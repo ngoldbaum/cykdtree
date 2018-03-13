@@ -39,6 +39,7 @@ public:
   bool is_leaf;
   uint32_t leafid;
   uint32_t ndim;
+  uint32_t level;
   double *left_edge;
   double *right_edge;
   uint64_t left_idx;
@@ -60,6 +61,7 @@ public:
     is_leaf = false;
     leafid = LEAF_MAX;
     ndim = 0;
+    level = 0;
     left_edge = NULL;
     right_edge = NULL;
     periodic_left = NULL;
@@ -68,11 +70,13 @@ public:
     greater = NULL;
   }
   // emtpy node with some info
-  Node(uint32_t ndim0, double *le, double *re, bool *ple, bool *pre) {
+  Node(uint32_t ndim0, uint32_t level0, double *le, double *re, bool *ple,
+       bool *pre) {
     is_empty = true;
     is_leaf = false;
     leafid = 4294967295;
     ndim = ndim0;
+    level = level0;
     left_edge = (double*)malloc(ndim*sizeof(double));
     right_edge = (double*)malloc(ndim*sizeof(double));
     periodic_left = (bool*)malloc(ndim*sizeof(bool));
@@ -88,15 +92,15 @@ public:
     }
   }
   // innernode constructor
-  Node(uint32_t ndim0, double *le, double *re, bool *ple, bool *pre,
-       uint64_t Lidx, uint32_t sdim0, double split0, Node *lnode, Node *gnode,
-       std::vector<Node*> left_nodes0) {
+  Node(uint32_t ndim0, uint32_t level0, double *le, double *re, bool *ple,
+       bool *pre, uint64_t Lidx, uint32_t sdim0, double split0, Node *lnode,
+       Node *gnode, std::vector<Node*> left_nodes0) {
     is_empty = false;
     is_leaf = false;
     leafid = 4294967295;
     ndim = ndim0;
+    level = level0;
     left_idx = Lidx;
-
     split_dim = sdim0;
     split = split0;
     less = lnode;
@@ -118,13 +122,14 @@ public:
     right_neighbors = std::vector<std::vector<uint32_t> >(ndim);
   }
   // leafnode constructor
-  Node(uint32_t ndim0, double *le, double *re, bool *ple, bool *pre,
-       uint64_t Lidx, uint64_t n, int leafid0,
+  Node(uint32_t ndim0, uint32_t level0, double *le, double *re, bool *ple,
+       bool *pre, uint64_t Lidx, uint64_t n, int leafid0,
        std::vector<Node*> left_nodes0) {
     is_empty = false;
     is_leaf = true;
     leafid = leafid0;
     ndim = ndim0;
+    level = level0;
     split = 0.0;
     split_dim = 0;
     left_idx = Lidx;
@@ -165,6 +170,7 @@ public:
     is_leaf = deserialize_scalar<bool>(is);
     leafid = deserialize_scalar<uint32_t>(is);
     ndim = deserialize_scalar<uint32_t>(is);
+    level = deserialize_scalar<uint32_t>(is);
     left_edge = deserialize_pointer_array<double>(is, ndim);
     right_edge = deserialize_pointer_array<double>(is, ndim);
     left_idx = deserialize_scalar<uint64_t>(is);
@@ -189,6 +195,7 @@ public:
     serialize_scalar<bool>(os, is_leaf);
     serialize_scalar<uint32_t>(os, leafid);
     serialize_scalar<uint32_t>(os, ndim);
+    serialize_scalar<uint32_t>(os, level);
     serialize_pointer_array<double>(os, left_edge, ndim);
     serialize_pointer_array<double>(os, right_edge, ndim);
     serialize_scalar<uint64_t>(os, left_idx);
@@ -254,8 +261,8 @@ public:
     Node *out;
     if (is_empty) {
       if (left_edge) {
-        out = new Node(ndim, left_edge, right_edge,
-                       periodic_left, periodic_right);
+        out = new Node(ndim, level, left_edge, right_edge, periodic_left,
+                       periodic_right);
       } else {
         out = new Node();
       }
@@ -263,7 +270,7 @@ public:
       std::vector<Node*> left_nodes_copy;
       for (uint32_t d = 0; d < ndim; d++)
         left_nodes_copy.push_back(NULL);
-      out = new Node(ndim, left_edge, right_edge,
+      out = new Node(ndim, level, left_edge, right_edge,
                      periodic_left, periodic_right,
                      left_idx, children, leafid,
                      left_nodes_copy);
@@ -273,7 +280,7 @@ public:
       std::vector<Node*> left_nodes_copy;
       for (uint32_t d = 0; d < ndim; d++)
         left_nodes_copy.push_back(NULL);
-      out = new Node(ndim, left_edge, right_edge,
+      out = new Node(ndim, level, left_edge, right_edge,
                      periodic_left, periodic_right,
                      left_idx, split_dim, split, lnode, gnode,
                      left_nodes_copy);
@@ -724,7 +731,7 @@ public:
       left_nodes.push_back(NULL);
     }
 
-    root = build(0, npts, LE, RE, PLE, PRE, all_pts,
+    root = build(0, npts, 0, LE, RE, PLE, PRE, all_pts,
                  mins, maxs, left_nodes);
 
     free(LE);
@@ -818,7 +825,7 @@ public:
     }
   }
 
-  Node* build(uint64_t Lidx, uint64_t n,
+  Node* build(uint64_t Lidx, uint64_t n, uint32_t level,
               double *LE, double *RE,
               bool *PLE, bool *PRE,
               double* all_pts,
@@ -827,7 +834,7 @@ public:
   {
     // Create leaf
     if (n < leafsize) {
-      Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, n, num_leaves,
+      Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, n, num_leaves,
                            left_nodes);
       num_leaves++;
       leaves.push_back(out);
@@ -841,8 +848,8 @@ public:
                    split_idx, split_val, use_sliding_midpoint);
       if (maxes[dmax] == mins[dmax]) {
         // all points singular
-        Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, n, num_leaves,
-                             left_nodes);
+        Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, n,
+                             num_leaves, left_nodes);
         num_leaves++;
         leaves.push_back(out);
         return out;
@@ -867,6 +874,18 @@ public:
         greaterPLE[d] = PLE[d];
         greater_left_nodes.push_back(left_nodes[d]);
       }
+
+      printf("split_val init: %f\n", split_val);
+      printf("RE: %f, LE: %f\n", RE[dmax], LE[dmax]);
+      printf("log2(RE - LE): %f\n", log2(RE[dmax] - LE[dmax]));
+
+      split_val = split_val - fmod(split_val, (RE[dmax] - LE[dmax])/256.);
+
+      printf("split_val final: %f\n", split_val);
+      printf("log2(RE - split_val): %f\n", log2(RE[dmax] - split_val));
+      printf("log2(split_val - LE): %f\n", log2(split_val - LE[dmax]));
+      printf("-----\n");
+
       lessmaxes[dmax] = split_val;
       lessright[dmax] = split_val;
       lessPRE[dmax] = false;
@@ -875,16 +894,16 @@ public:
       greaterPLE[dmax] = false;
 
       // Build less and greater nodes
-      Node* less = build(Lidx, Nless, LE, lessright, PLE, lessPRE,
+      Node* less = build(Lidx, Nless, level+1, LE, lessright, PLE, lessPRE,
                          all_pts, mins, lessmaxes, left_nodes);
       greater_left_nodes[dmax] = less;
-      Node* greater = build(Lidx+Nless, Ngreater, greaterleft, RE,
+      Node* greater = build(Lidx+Nless, Ngreater, level+1, greaterleft, RE,
                             greaterPLE, PRE, all_pts,
                             greatermins, maxes, greater_left_nodes);
 
       // Create innernode referencing child nodes
-      Node* out = new Node(ndim, LE, RE, PLE, PRE, Lidx, dmax, split_val,
-                           less, greater, left_nodes);
+      Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, dmax,
+                           split_val, less, greater, left_nodes);
 
       free(lessright);
       free(greaterleft);
