@@ -317,7 +317,7 @@ def py_split(np.ndarray[np.float64_t, ndim=2] pos,
     """
     cdef uint64_t npts = pos.shape[0]
     cdef uint32_t ndim = pos.shape[1]
-    cdef np.float64_t[:] width = pos.max(axis=0) - pos.min(axis=0)
+    cdef np.float64_t[:] width = np.zeros(ndim)
     level = 0
     cdef uint64_t Lidx = 0
     cdef uint64_t[:] idx
@@ -327,6 +327,7 @@ def py_split(np.ndarray[np.float64_t, ndim=2] pos,
     cdef double *ptr_mins = NULL
     cdef double *ptr_maxs = NULL
     if (npts != 0) and (ndim != 0):
+        width = pos.max(axis=0) - pos.min(axis=0)
         if mins is None:
             mins = np.min(pos, axis=0)
         if maxs is None:
