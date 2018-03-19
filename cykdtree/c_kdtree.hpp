@@ -521,7 +521,8 @@ public:
          uint32_t leafsize0, double *left_edge, double *right_edge,
          bool *periodic_left0, bool *periodic_right0,
          double *domain_mins0, double *domain_maxs0, int64_t dversion,
-         bool use_sliding_midpoint0 = false, bool dont_build = false)
+         bool use_sliding_midpoint0 = false, bool dont_build = false,
+         bool amr_nested = false)
   {
     is_partial = true;
     skip_dealloc_root = false;
@@ -574,13 +575,13 @@ public:
       domain_width[d] = domain_right_edge[d] - domain_left_edge[d];
 
     if ((pts) && (!(dont_build)))
-      build_tree(pts);
+      build_tree(pts, amr_nested);
 
   }
   KDTree(double *pts, uint64_t *idx, uint64_t n, uint32_t m,
          uint32_t leafsize0, double *left_edge, double *right_edge,
          bool *periodic0, int64_t dversion, bool use_sliding_midpoint0 = false,
-         bool dont_build = false)
+         bool dont_build = false, bool amr_nested = false)
   {
     is_partial = false;
     skip_dealloc_root = false;
@@ -627,7 +628,7 @@ public:
       domain_width[d] = domain_right_edge[d] - domain_left_edge[d];
 
     if ((pts) && (!(dont_build)))
-      build_tree(pts);
+      build_tree(pts, amr_nested);
 
   }
   KDTree(std::istream &is)
@@ -706,7 +707,7 @@ public:
     }
   }
 
-  void build_tree(double* all_pts) {
+  void build_tree(double* all_pts, bool amr_nested) {
     uint32_t d;
     double *LE = (double*)malloc(ndim*sizeof(double));
     double *RE = (double*)malloc(ndim*sizeof(double));
@@ -732,7 +733,7 @@ public:
     }
 
     root = build(0, npts, 0, LE, RE, PLE, PRE, all_pts,
-                 mins, maxs, left_nodes);
+                 mins, maxs, left_nodes, amr_nested);
 
     free(LE);
     free(RE);
@@ -830,7 +831,8 @@ public:
               bool *PLE, bool *PRE,
               double* all_pts,
               double *mins, double *maxes,
-              std::vector<Node*> left_nodes)
+              std::vector<Node*> left_nodes,
+              bool amr_nested)
   {
     // Create leaf
     if (n < leafsize) {
@@ -845,7 +847,8 @@ public:
       int64_t split_idx = 0;
       double split_val = 0.0;
       dmax = split(all_pts, all_idx, Lidx, n, ndim, mins, maxes,
-                   split_idx, split_val, use_sliding_midpoint);
+                   split_idx, split_val, this->domain_width, level,
+                   use_sliding_midpoint, amr_nested);
       if (maxes[dmax] == mins[dmax]) {
         // all points singular
         Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, n,
@@ -875,17 +878,6 @@ public:
         greater_left_nodes.push_back(left_nodes[d]);
       }
 
-      printf("split_val init: %f\n", split_val);
-      printf("RE: %f, LE: %f\n", RE[dmax], LE[dmax]);
-      printf("log2(RE - LE): %f\n", log2(RE[dmax] - LE[dmax]));
-
-      split_val = split_val - fmod(split_val, (RE[dmax] - LE[dmax])/256.);
-
-      printf("split_val final: %f\n", split_val);
-      printf("log2(RE - split_val): %f\n", log2(RE[dmax] - split_val));
-      printf("log2(split_val - LE): %f\n", log2(split_val - LE[dmax]));
-      printf("-----\n");
-
       lessmaxes[dmax] = split_val;
       lessright[dmax] = split_val;
       lessPRE[dmax] = false;
@@ -895,11 +887,12 @@ public:
 
       // Build less and greater nodes
       Node* less = build(Lidx, Nless, level+1, LE, lessright, PLE, lessPRE,
-                         all_pts, mins, lessmaxes, left_nodes);
+                         all_pts, mins, lessmaxes, left_nodes, amr_nested);
       greater_left_nodes[dmax] = less;
       Node* greater = build(Lidx+Nless, Ngreater, level+1, greaterleft, RE,
                             greaterPLE, PRE, all_pts,
-                            greatermins, maxes, greater_left_nodes);
+                            greatermins, maxes, greater_left_nodes,
+                            amr_nested);
 
       // Create innernode referencing child nodes
       Node* out = new Node(ndim, level, LE, RE, PLE, PRE, Lidx, dmax,

@@ -295,7 +295,8 @@ def py_select(np.ndarray[np.float64_t, ndim=2] pos, np.uint32_t d,
 def py_split(np.ndarray[np.float64_t, ndim=2] pos, 
              np.ndarray[np.float64_t, ndim=1] mins = None,
              np.ndarray[np.float64_t, ndim=1] maxs = None,
-             bool use_sliding_midpoint = False):
+             bool use_sliding_midpoint = False,
+             bool amr_nested = False):
     r"""Get the indices required to split the positions equally along the
     largest dimension.
 
@@ -316,6 +317,8 @@ def py_split(np.ndarray[np.float64_t, ndim=2] pos,
     """
     cdef uint64_t npts = pos.shape[0]
     cdef uint32_t ndim = pos.shape[1]
+    cdef np.float64_t[:] width = pos.max(axis=0) - pos.min(axis=0)
+    level = 0
     cdef uint64_t Lidx = 0
     cdef uint64_t[:] idx
     idx = np.arange(pos.shape[0]).astype('uint64')
@@ -337,5 +340,5 @@ def py_split(np.ndarray[np.float64_t, ndim=2] pos,
     cdef cbool c_midpoint_flag = <cbool>use_sliding_midpoint
     cdef uint32_t dsplit = split(ptr_pos, ptr_idx, Lidx, npts, ndim,
                                  ptr_mins, ptr_maxs, q, split_val,
-                                 c_midpoint_flag)
+                                 &width[0], level, c_midpoint_flag, amr_nested)
     return q, dsplit, idx

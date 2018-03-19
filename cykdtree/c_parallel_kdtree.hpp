@@ -949,7 +949,7 @@ public:
 #endif
     double _t0 = begin_time();
     // Build, don't include self in all neighbors for now
-    tree->build_tree(*new_all_pts);
+    tree->build_tree(*new_all_pts, false);
     debug_msg(true, "build_tree", "num_leaves = %u", tree->num_leaves);
     end_time(_t0, "build_tree");
     consolidate();
@@ -1038,7 +1038,8 @@ public:
     double split_val = 0.0;
     dsplit = split(all_pts, all_idx, 0, local_npts, ndim,
                    local_domain_mins, local_domain_maxs,
-                   split_idx, split_val, use_sliding_midpoint);
+                   split_idx, split_val, total_domain_width, 1,
+                   use_sliding_midpoint, false);
     this_exch = exch_rec(rank, other_rank, dsplit, split_val, split_idx,
                          local_left_idx + split_idx + 1,
                          local_npts - split_idx - 1);

@@ -75,7 +75,7 @@ cdef extern from "c_kdtree.hpp":
         KDTree(double *pts, uint64_t *idx, uint64_t n, uint32_t m,
                uint32_t leafsize0, double *left_edge, double *right_edge,
                bool *periodic, int64_t data_version,
-               bool use_sliding_midpoint)
+               bool use_sliding_midpoint, bool dont_build, bool amr_nested)
         KDTree(istream &ist)
         void serialize(ostream &os)
         double* wrap_pos(double* pos) nogil
@@ -112,7 +112,8 @@ cdef class PyKDTree:
     cdef readonly object leaves
     cdef readonly object _idx
     cdef void _init_tree(self, KDTree* tree)
-    cdef void _make_tree(self, double *pts, bool use_sliding_midpoint)
+    cdef void _make_tree(self, double *pts, bool use_sliding_midpoint,
+                         bool amr_nested)
     cdef void _make_leaves(self)
     cdef np.ndarray[np.uint32_t, ndim=1] _get_neighbor_ids(self, np.ndarray[double, ndim=1] pos)
     cdef np.ndarray[np.uint32_t, ndim=1] _get_neighbor_ids_3(self, np.float64_t pos[3])

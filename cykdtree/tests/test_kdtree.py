@@ -106,3 +106,40 @@ def test_save_load():
                 tree.save(tf.name)
                 restore_tree = cykdtree.PyKDTree.from_file(tf.name)
                 tree.assert_equal(restore_tree)
+
+@parametrize(npts=(10, 100, 1000), periodic=(True, False),
+             ndim=list(range(1, 5)), distrib=('rand', 'uniform', 'normal'))
+def test_level(npts, periodic, ndim, distrib):
+    def level_search(node, level):
+        ret = []
+        if node.left_child is not None:
+            ret.append(level_search(node.left_child, level+1))
+        if node.right_child is not None:
+            ret.append(level_search(node.right_child, level+1))
+        return ret + [node.level == level]
+
+    pts, le, re, ls = make_points(npts, ndim, distrib=distrib)
+    tree = cykdtree.PyKDTree(pts, le, re, leafsize=ls, periodic=periodic)
+    assert all(level_search(tree.root, 0))
+
+@parametrize(npts=(10, 100, 1000), periodic=(True, False),
+             ndim=list(range(1, 5)), distrib=('rand', 'uniform', 'normal'))
+def test_amr_nested(npts, periodic, ndim, distrib):
+    def nested_search(node):
+        if node is None:
+            return []
+        ret = []
+        ret.extend(nested_search(node.left_child))
+        ret.extend(nested_search(node.right_child))
+        result = True
+        if (le == re).all():
+            result = False
+        if node.npts <= 1:
+            result = False
+        ret.append(result)
+        return ret
+
+    pts, le, re, ls = make_points(npts, ndim, distrib=distrib)
+    tree = cykdtree.PyKDTree(pts, le, re, leafsize=ls,
+                             periodic=periodic, amr_nested=True)
+    assert all(nested_search(tree.root))

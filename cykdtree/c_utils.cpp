@@ -206,7 +206,8 @@ uint32_t split(double *all_pts, uint64_t *all_idx,
                uint64_t Lidx, uint64_t n, uint32_t ndim,
                double *mins, double *maxes,
                int64_t &split_idx, double &split_val,
-               bool use_sliding_midpoint) {
+               double* width, uint32_t level,
+               bool use_sliding_midpoint, bool amr_nested) {
   // Return immediately if variables empty
   if ((n == 0) or (ndim == 0)) {
     split_idx = -1;
@@ -225,18 +226,20 @@ uint32_t split(double *all_pts, uint64_t *all_idx,
     return ndim;
   }
 
+  int64_t left_idx = (int64_t)(Lidx-1);
+  int64_t right_idx = (int64_t)(Lidx+n-1);
   if (use_sliding_midpoint) {
     // Split at middle, then slide midpoint as necessary
     split_val = (mins[dmax] + maxes[dmax])/2.0;
     split_idx = partition_given_pivot(all_pts, all_idx, ndim, dmax,
-				      Lidx, Lidx+n-1, split_val);
-    if (split_idx == (int64_t)(Lidx-1)) {
+                                      Lidx, Lidx+n-1, split_val);
+    if (split_idx == left_idx) {
       uint64_t t;
       split_idx = argmin_pts_dim(all_pts, all_idx, ndim, dmax, Lidx, Lidx+n-1);
       t = all_idx[split_idx]; all_idx[split_idx] = all_idx[Lidx]; all_idx[Lidx] = t;
       split_idx = Lidx;
       split_val = all_pts[ndim*all_idx[split_idx] + dmax];
-    } else if (split_idx == (int64_t)(Lidx+n-1)) {
+    } else if (split_idx == right_idx) {
       uint64_t t;
       split_idx = argmax_pts_dim(all_pts, all_idx, ndim, dmax, Lidx, Lidx+n-1);
       t = all_idx[split_idx]; all_idx[split_idx] = all_idx[Lidx+n-1]; all_idx[Lidx+n-1] = t;
@@ -248,6 +251,27 @@ uint32_t split(double *all_pts, uint64_t *all_idx,
     int64_t nsel = (n/2) + (n%2);
     split_idx = select(all_pts, all_idx, ndim, dmax, Lidx, Lidx+n-1, nsel);
     split_val = all_pts[ndim*all_idx[split_idx] + dmax];
+    if (amr_nested) {
+      double difference, dx, init_split_val;
+      bool first_time = true;
+      uint32_t ilevel = level;
+      init_split_val = split_val;
+      while (first_time || (split_idx <= left_idx+1 || split_idx >= right_idx-1)) {
+        first_time = false;
+        ilevel++;
+        split_val = init_split_val;
+        dx = width[dmax]/pow(2, ilevel);
+        difference = fmod(split_val, dx);
+        if (difference < dx/2) {
+          split_val = split_val - difference;
+        } else {
+          split_val = split_val + (dx - difference);
+        }
+        // Adjust split_idx in case this choice of split_val excludes particles
+        split_idx = partition_given_pivot(all_pts, all_idx, ndim, dmax,
+                                          Lidx, Lidx+n-1, split_val);
+      }
+    }
   }
 
   return dmax;

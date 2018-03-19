@@ -32,6 +32,13 @@ cdef class PyNode:
             minimum bounds in each dimension.
         right_neighbors (list of lists): Indices of neighbor leaves at the
             maximum bounds in each dimension.
+        neighbors (list of lists): Indices for all neighbor leaves
+        slice (slice instance): slice object for indexing into the global 
+            particle list
+        left_child (PyNode or None): Reference to the left child node. None
+            for a leaf node.
+        right_child (PyNode or None): Reference to the right child node.
+            None for a leaf node.
 
     """
 
@@ -91,18 +98,22 @@ cdef class PyNode:
     def periodic_left(self):
         cdef cbool[:] view = <cbool[:self.ndim]> self._node.periodic_left
         return np.asarray(view)
+
     @property
     def periodic_right(self):
         cdef cbool[:] view = <cbool[:self.ndim]> self._node.periodic_right
         return np.asarray(view)
+
     @property
     def left_edge(self):
         cdef np.float64_t[:] view = <np.float64_t[:self.ndim]> self._node.left_edge
         return np.asarray(view)
+
     @property
     def right_edge(self):
         cdef np.float64_t[:] view = <np.float64_t[:self.ndim]> self._node.right_edge
         return np.asarray(view)
+
     @property
     def domain_width(self):
         cdef np.float64_t[:] view = <np.float64_t[:self.ndim]> self._domain_width
@@ -122,6 +133,26 @@ cdef class PyNode:
         cdef vector[uint32_t] vout = self._node.all_neighbors
         out = [vout[i] for i in range(<np.uint32_t>vout.size())]
         return out
+
+    @property
+    def left_child(self):
+        cdef PyNode child
+        if self._node.less != NULL:
+            child = PyNode()
+            child._init_node(self._node.less, self.num_leaves,
+                             self._domain_width)
+            return child
+        return None
+
+    @property
+    def right_child(self):
+        cdef PyNode child
+        if self._node.greater != NULL:
+            child = PyNode()
+            child._init_node(self._node.greater, self.num_leaves,
+                             self._domain_width)
+            return child
+        return None
 
     def assert_equal(self, PyNode solf):
         """Assert that node properties are equal."""
@@ -165,6 +196,12 @@ cdef class PyKDTree:
         use_sliding_midpoint (bool, optional): If True, the sliding midpoint
             rule is used to perform splits. Otherwise, the median is used.
             Defaults to False.
+        amr_nested (bool, optional): If True, the KDTree split values are 
+            adjusted to be at "natural" AMR boundaries. The "natural" split 
+            spacing scales with the KDTree level as 2**-(level+1). This means 
+            the size of the splits adjustments necessary shrink as the KDTree 
+            becomes more refined. Currently the amr_nested option is only 
+            supported for KDTrees that do not use the sliding midpoint rule.
 
     Raises:
         ValueError: If `leafsize < 2`. This currectly segfaults.
@@ -218,7 +255,8 @@ cdef class PyKDTree:
                  int leafsize = 10000,
                  int nleaves = 0,
                  data_version = None,
-                 use_sliding_midpoint = False):
+                 use_sliding_midpoint = False,
+                 amr_nested = False):
         # Return with nothing set if points not provided
         if pts is None:
             return
@@ -260,7 +298,8 @@ cdef class PyKDTree:
             for i in range(self.ndim):
                 self._periodic[i] = <cbool>periodic[i]
         # Create tree and leaves
-        self._make_tree(&pts[0,0], <cbool>use_sliding_midpoint)
+        self._make_tree(&pts[0,0], <cbool>use_sliding_midpoint,
+                        <cbool>amr_nested)
         self._make_leaves()
 
     def __dealloc__(self):
@@ -307,12 +346,14 @@ cdef class PyKDTree:
                     np.sort(self._idx[self.leaves[i].slice]),
                     np.sort(solf._idx[solf.leaves[i].slice]))
 
-    cdef void _make_tree(self, double *pts, bool use_sliding_midpoint):
+    cdef void _make_tree(self, double *pts, bool use_sliding_midpoint,
+                         bool amr_nested):
         r"""Carry out creation of KDTree at C++ level."""
         cdef uint64_t[:] idx = np.arange(self.npts).astype('uint64')
-        self._tree = new KDTree(pts, &idx[0], self.npts, self.ndim, self.leafsize,
-                                self._left_edge, self._right_edge, self._periodic,
-                                self.data_version, use_sliding_midpoint)
+        self._tree = new KDTree(
+            pts, &idx[0], self.npts, self.ndim, self.leafsize, self._left_edge,
+            self._right_edge, self._periodic, self.data_version,
+            use_sliding_midpoint, False, amr_nested)
         self._idx = idx
 
     cdef void _make_leaves(self):
@@ -375,6 +416,16 @@ cdef class PyKDTree:
     @property
     def idx(self):
         return np.asarray(self._idx)
+
+    @property
+    def root(self):
+        cdef PyNode rootnode_py
+        
+        rootnode_py = PyNode()
+        rootnode_py._init_node(self._tree.root, self.num_leaves,
+                               self._tree.domain_width)
+
+        return rootnode_py
 
     def get_neighbor_ids(self, np.ndarray[double, ndim=1] pos):
         r"""Return the IDs of leaves containing & neighboring a given position.

@@ -258,7 +258,7 @@ def make_points(npts, ndim, leafsize=10, distrib='rand', seed=100):
             elif distrib == 'uniform':
                 pts = np.random.uniform(low=LE, high=RE, size=(npts, ndim))
             elif distrib in ('gaussian', 'normal'):
-                pts = np.random.normal(loc=(LE+RE)/2.0, scale=(RE-LE)/4.0,
+                pts = np.random.normal(loc=(LE+RE)/2.0, scale=(RE-LE)/12.0,
                                        size=(npts, ndim))
                 np.clip(pts, LE, RE)
             else:
